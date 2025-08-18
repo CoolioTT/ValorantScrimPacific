@@ -4,4 +4,4 @@ app = FastAPI()
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "message": "Scrim backend running!"}
+    return {"status": "ok", "message": "Scrim backend running with SSL!"}

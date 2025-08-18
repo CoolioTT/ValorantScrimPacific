@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "📦 Setting up scrim platform project..."
+echo "📦 Setting up scrim platform project with SSL..."
 
 # Create folders
 mkdir -p backend frontend nginx/certbot/conf nginx/certbot/www .github/workflows frontend/src/pages frontend/src/components
@@ -13,6 +13,7 @@ cat > .env << 'EOF'
 POSTGRES_USER=scrimuser
 POSTGRES_PASSWORD=scrimpass
 POSTGRES_DB=scrimdb
+DOMAIN=scrim.cooliott.online
 EOF
 
 # -------------------------------
@@ -35,8 +36,6 @@ services:
   frontend:
     build: ./frontend
     container_name: scrim-frontend
-    ports:
-      - "3000:3000"
     networks:
       - scrim-net
 
@@ -68,6 +67,20 @@ services:
     networks:
       - scrim-net
 
+  certbot:
+    image: certbot/certbot
+    container_name: scrim-certbot
+    volumes:
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
+    entrypoint: /bin/sh -c
+    command: >
+      "trap exit TERM;
+      while :; do
+        certbot renew --webroot -w /var/www/certbot --quiet;
+        sleep 12h & wait $${!};
+      done"
+
 volumes:
   db_data:
 
@@ -76,7 +89,7 @@ networks:
 EOF
 
 # -------------------------------
-# nginx.conf
+# nginx.conf (with SSL redirect)
 # -------------------------------
 cat > nginx/nginx.conf << 'EOF'
 events {}
@@ -84,12 +97,23 @@ events {}
 http {
     server {
         listen 80;
-
         server_name scrim.cooliott.online;
 
         location /.well-known/acme-challenge/ {
             root /var/www/certbot;
         }
+
+        location / {
+            return 301 https://$host$request_uri;
+        }
+    }
+
+    server {
+        listen 443 ssl;
+        server_name scrim.cooliott.online;
+
+        ssl_certificate /etc/letsencrypt/live/scrim.cooliott.online/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/scrim.cooliott.online/privkey.pem;
 
         location /api/ {
             proxy_pass http://backend:8000/;
@@ -130,7 +154,7 @@ app = FastAPI()
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "message": "Scrim backend running!"}
+    return {"status": "ok", "message": "Scrim backend running with SSL!"}
 EOF
 
 # -------------------------------
@@ -186,7 +210,7 @@ export default function App() {
   return (
     <div>
       <h1>Scrim Platform</h1>
-      <p>Welcome! This is your esports scrim finder.</p>
+      <p>Welcome! This is your esports scrim finder with HTTPS.</p>
     </div>
   );
 }
@@ -227,4 +251,4 @@ jobs:
           EOF2
 EOF
 
-echo "✅ Project structure created!"
+echo "✅ Project with SSL created!"
