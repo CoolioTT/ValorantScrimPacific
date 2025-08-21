@@ -1,32 +1,44 @@
-name: Deploy Scrim Backend
+name: Deploy Scrim Platform
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   deploy:
+    name: Deploy to VPS
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Node
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'
+          node-version: 18
 
       - name: Install dependencies
-        run: npm ci
-
-      - name: Generate Prisma Client
-        run: npx prisma generate
-
-      - name: Run migrations
-        run: npx prisma migrate deploy
-
-      - name: Restart server via SSH
         run: |
-          ssh ubuntu@your-vps-ip 'pm2 restart scrim-backend'
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          cd scrim-frontend
+          npm install
+
+      - name: Build frontend
+        run: |
+          cd scrim-frontend
+          npm run build
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_PRIVATE_KEY }}
+          script: |
+            cd ~/scrim-platform
+            git pull origin main
+            npm install --prefix scrim-frontend
+            npm run build --prefix scrim-frontend
+            pm2 restart scrim-platform || pm2 start scrim-frontend/dist/index.js --name scrim-platform
+
