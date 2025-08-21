@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  username     String
+  password     String
+  createdAt    DateTime @default(now())
+  teamId       Int?     @unique
+  team         Team?    @relation(fields: [teamId], references: [id])
+  hostedScrims Scrim[]  @relation("UserHostedScrims")
+  reviews      Review[] @relation("UserReviews")
+}
+
+model Team {
+  id         Int      @id @default(autoincrement())
+  name       String
+  tag        String   @unique
+  logoUrl    String?
+  region     String
+  rank       String
+  discordTag String
+  isPublic   Boolean  @default(true)
+  role       String   @default("Public")
+  createdAt  DateTime @default(now())
+  members    User[]
+  reviews    Review[]
+  matchesA   Match[]  @relation("TeamA")
+  matchesB   Match[]  @relation("TeamB")
+}
+
+model Scrim {
+  id        Int      @id @default(autoincrement())
+  hostId    Int
+  createdAt DateTime @default(now())
+  host      User     @relation("UserHostedScrims", fields: [hostId], references: [id])
+}
+
+model Match {
+  id        Int      @id @default(autoincrement())
+  teamAId   Int
+  teamBId   Int
+  scheduled DateTime
+  createdAt DateTime @default(now())
+
+  teamA Team @relation("TeamA", fields: [teamAId], references: [id])
+  teamB Team @relation("TeamB", fields: [teamBId], references: [id])
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  reviewerId Int
+  teamId     Int
+  rating     Int // Optional: 1–5 scale
+  comment    String? // Optional: feedback text
+  createdAt  DateTime @default(now())
+
+  reviewer User @relation("UserReviews", fields: [reviewerId], references: [id])
+  team     Team @relation(fields: [teamId], references: [id])
+}

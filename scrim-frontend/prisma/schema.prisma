@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              Int        @id @default(autoincrement())
+  email           String     @unique
+  username        String
+  discordId       String?    @unique
+  avatarUrl       String?
+  rank            String?
+  teams           TeamUser[]
+  sentInvites     Invite[]   @relation("InviteSender")
+  receivedInvites Invite[]   @relation("InviteReceiver")
+}
+
+model Team {
+  id            Int        @id @default(autoincrement())
+  name          String
+  region        String
+  members       TeamUser[]
+  scrimsAsTeamA Scrim[]    @relation("TeamA")
+  scrimsAsTeamB Scrim[]    @relation("TeamB")
+  invites       Invite[]
+}
+
+model TeamUser {
+  user   User @relation(fields: [userId], references: [id])
+  userId Int
+
+  team   Team @relation(fields: [teamId], references: [id])
+  teamId Int
+
+  role     String?
+  joinedAt DateTime @default(now())
+
+  @@id([userId, teamId])
+}
+
+model Scrim {
+  id      Int  @id @default(autoincrement())
+  teamA   Team @relation("TeamA", fields: [teamAId], references: [id])
+  teamAId Int
+
+  teamB   Team @relation("TeamB", fields: [teamBId], references: [id])
+  teamBId Int
+
+  scheduledAt DateTime
+  status      String
+  result      String?
+
+  invites Invite[]
+}
+
+model Invite {
+  id       Int  @id @default(autoincrement())
+  sender   User @relation("InviteSender", fields: [senderId], references: [id])
+  senderId Int
+
+  receiver   User @relation("InviteReceiver", fields: [receiverId], references: [id])
+  receiverId Int
+
+  team   Team? @relation(fields: [teamId], references: [id])
+  teamId Int?
+
+  scrim   Scrim? @relation(fields: [scrimId], references: [id])
+  scrimId Int?
+
+  type      String
+  status    String
+  createdAt DateTime @default(now())
+}
